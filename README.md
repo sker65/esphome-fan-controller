@@ -21,11 +21,17 @@ Same is true for tacho input (anyway measured as "pulled to low").
 ## mosfet type
 Use a ttl compatible type that is "good enough" at 3.3V gate source voltage like the IRL540.
 I use a 1k resistor from esp output to gate.
+## mosfet needed?
+The MOSFET is optional. You can just leave it out. Depending on the fans you use they will still run with their
+built in minimum speed.
 ## 3pin fans?
 Please use 4pin fans otherwise the speed control does not work.
 ## multipe fans?
 just apply a one-to-X adapter to drive more fans (RPM measurement may will become inaccurate)
-
+## fans stop unexpected
+some fans require a minimum duty cycle in the pwm to run (in contrast to the desktop fans, that run even at 0% pwm).
+This means that you new a minimum pwm duty cycle to start with. This is currenty not supported directly. Either change it 
+in the code or post an issue.
 # Controls
 You can either control the speed manually from off to min rpm to max rpm (0 speed means off).
 If you switch on temperature control the speed of the fans will be controlled by the temp sensor in a 
