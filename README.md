@@ -7,7 +7,7 @@ As additional feature switching off the fans completely via a N-Ch MOSFET is sup
 fans still run at minimum speed even if the pwm is at 0% duty cycle.
 
 # Wiring
-As you can see from the yaml, D0 is used for the temp sensor (yellow data line).
+<img style='float: right;' src='img/wiring.png'>As you can see from the yaml, D0 is used for the temp sensor (yellow data line).
 D1 drives the PWM output for speed controll of the fans.
 D2 is the tacho input for measuring rotation speed.
 D3 drives the MOSFET that can switch the fans off.
@@ -31,3 +31,14 @@ You can either control the speed manually from off to min rpm to max rpm (0 spee
 If you switch on temperature control the speed of the fans will be controlled by the temp sensor in a 
 linear curve: fans will be switched on at "fan start temp" and will increase speed until the temp
 reaches "100% temp" and stay at 100% of course as long as the temp does go down.
+
+# Home Assistant
+in home assistant it looks like this <img style='float: right;' src='img/ha.jpg'>
+
+# Communication
+Currently the code uses MQTT to communicate, which is my preferred way to do it as it is more generally usable, but you can easily switch to "native api" if you like to or if you have no mqtt server running.
+
+# Other
+The "code" (its just a piece of yaml) also has the usual stuff enabled, like some system sensors about uptime and wifi.
+
+OTA updates are supported and it also features a restart button, if needed.
