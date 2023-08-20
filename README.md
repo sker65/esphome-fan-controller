@@ -1,5 +1,5 @@
 # esphome-fan-controller
-Yet another esphome based fan controller. Can be controller either manually or by temperatur sensor.
+Yet another esphome based fan controller. Can be controlled either manually or by temperature sensor.
 
 It works with a simple d1mini pro and 4pin controlled fans which can be controlled via PWM.
 
