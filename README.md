@@ -50,3 +50,7 @@ The "code" (its just a piece of yaml) also has the usual stuff enabled, like som
 Also a regular webserver running on port 80 is included so that you can control the fans directy with the browser.
 
 OTA updates are supported and it also features a restart button, if needed.
+
+# Reference / Inspired by
+- https://github.com/3ative/PWM-Fan-controller
+- https://community.home-assistant.io/t/pwm-fan-controller/433316
