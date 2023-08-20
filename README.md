@@ -1,2 +1,33 @@
 # esphome-fan-controller
 Yet another esphome based fan controller. Can be controller either manually or by temperatur sensor.
+
+It works with a simple d1mini pro and 4pin controlled fans which can be controlled via PWM.
+
+As additional feature switching off the fans completely via a N-Ch MOSFET is supported as most of the 
+fans still run at minimum speed even if the pwm is at 0% duty cycle.
+
+# Wiring
+As you can see from the yaml, D0 is used for the temp sensor (yellow data line).
+D1 drives the PWM output for speed controll of the fans.
+D2 is the tacho input for measuring rotation speed.
+D3 drives the MOSFET that can switch the fans off.
+
+# Notes
+## power supply / fan type
+I use 12V fans which requires to use some DC-DC converter down to 5V for the d1mini.
+## level shifting
+My fans (brand is upHere) have no problem with PWM from the esp8266 being only at 3.3V level.
+Same is true for tacho input (anyway measured as "pulled to low").
+## mosfet type
+Use a ttl compatible type that is "good enough" at 3.3V gate source voltage like the IRL540.
+I use a 1k resistor from esp output to gate.
+## 3pin fans?
+Please use 4pin fans otherwise the speed control does not work.
+## multipe fans?
+just apply a one-to-X adapter to drive more fans (RPM measurement may will become inaccurate)
+
+# Controls
+You can either control the speed manually from off to min rpm to max rpm (0 speed means off).
+If you switch on temperature control the speed of the fans will be controlled by the temp sensor in a 
+linear curve: fans will be switched on at "fan start temp" and will increase speed until the temp
+reaches "100% temp" and stay at 100% of course as long as the temp does go down.
