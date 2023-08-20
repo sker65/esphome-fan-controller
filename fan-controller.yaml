@@ -1,0 +1,231 @@
+substitutions:
+  friendly_name: Fan Controller
+  name: fan-controller
+
+
+esphome:
+  name: ${name}
+
+#########################                                                                                                                                                                                                                
+# ESP AND NETWORK SETUP                                                                                                                                                                                                                
+
+esp8266:
+  board: d1_mini
+
+# pid climate log update is noisy, dial it back to warn                                                                                                                                                                                  
+logger:
+  level: DEBUG
+  logs:
+    dallas: DEBUG
+
+# uncomment if you prefer native api
+#api:
+
+# i prefer mqtt over native api
+mqtt:
+  broker: "###### your broker address here #####"
+  discovery: true
+  discovery_prefix: homeassistant
+  log_topic: 
+    topic: ${name}/log
+    level: WARN
+
+web_server:
+  port: 80
+
+# default HA integration, OTA updater and backup http web portal                                                                                                                                                                         
+ota:
+  on_begin:
+    then:
+      - logger.log: "OTA start"
+  on_progress:
+    then:
+      - logger.log:
+          format: "OTA progress %0.1f%%"
+          args: ["x"]
+  on_end:
+    then:
+      - logger.log: "OTA end"
+
+captive_portal:
+
+wifi:
+
+  # Read the wifi/pass from secrets.yaml:                                                                                                                                                                                                
+  # wifi_ssid: "My Wifi XX"                                                                                                                                                                                                              
+  # wifi_password: "XXXXXXX"                                                                                                                                                                                                             
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails                                                                                                                                                               
+  ap:
+    ssid: FanController
+
+
+text_sensor:
+  # Send IP Address                                                                                                                                                                                                                      
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+    ssid:
+      name: SSID
+
+  # Send Uptime in raw seconds                                                                                                                                                                                                           
+  - platform: template
+    name: Uptime
+    id: uptime_human
+    icon: mdi:clock-start
+
+dallas:
+  - pin: D0
+    update_interval: 10s
+
+sensor:
+  # Send WiFi signal strength & uptime to HA                                                                                                                                                                                             
+  - platform: wifi_signal
+    name: WiFi Strength
+    update_interval: 60s
+
+  # RPM Signal from Fan                                                                                                                                                                                                                  
+  - platform: pulse_counter
+    pin:
+      number: D2
+      mode:
+        input: true
+        pullup: true
+    name: Measured Speed
+    id: fan_pulse
+    unit_of_measurement: 'RPM'
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.5
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 10s
+
+  # This is a bit of overkill. It sends a human readable                                                                                                                                                                                 
+  # uptime string                                                                                                                                                                                                                        
+  # 1h 41m 32s instead of 6092 seconds                                                                                                                                                                                                   
+  - platform: uptime
+    name: Uptime
+    id: uptime_sensor
+    update_interval: 60s
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            # Custom C++ code to generate the result                                                                                                                                                                                     
+            state: !lambda |-
+              int seconds = round(id(uptime_sensor).raw_state);
+              int days = seconds / (24 * 3600);                                                                                                                                                                                          
+              seconds = seconds % (24 * 3600);                                                                                                                                                                                           
+              int hours = seconds / 3600;                                                                                                                                                                                                
+              seconds = seconds % 3600;                                                                                                                                                                                                  
+              int minutes = seconds /  60;                                                                                                                                                                                               
+              seconds = seconds % 60;                                                                                                                                                                                                    
+              return (                                                                                                                                                                                                                   
+                (days ? to_string(days) + "d " : "") +
+                (hours ? to_string(hours) + "h " : "") +
+                (minutes ? to_string(minutes) + "m " : "") +
+                (to_string(seconds) + "s")
+              ).c_str();                                                                                                                                                                                                                 
+
+  - platform: dallas
+    #address: 0x1c0000031edd2a28
+    index: 0
+    resolution: 9
+    name: "Temperature"
+    id: fan_temperature
+    accuracy_decimals: 1
+    #alternative use lambda with map
+    on_value:
+      # map min temp whn fan should start 30°C to max temp 50°C when it should have max speed
+      - lambda: !lambda |
+          auto pct = constrain(map(x, id(start_temp).state, id(max_temp).state, 1, 100),0,100);
+          if( id(automatic).state ) {
+            if (pct>1) {
+              auto call = id(the_fan).turn_on(); call.set_speed(pct); call.perform();
+            } else {
+              auto call = id(the_fan).turn_off(); call.set_speed(1); call.perform();
+            }
+            ESP_LOGD("custom", "Setting speed to %i %%", pct);
+          }
+
+output:
+  # Wire D1 into the PWM pin of your 12v fan                                                                                                                                                                                  
+  # ledc is the name of the pwm output system on an esp32                                                                                                                                                                                
+  - platform: esp8266_pwm
+    id: fan_speed
+    pin: D1
+
+    # 25KHz is standard PC fan frequency, minimises buzzing for eso8266 1kHz is max                                                                                                                                                                           
+    frequency: "1000 Hz"
+
+    # my fans stop working below 13% powerful.                                                                                                                                                                                           
+    # also they're  powerful and loud, cap their max speed to 80%                                                                                                                                                                        
+    min_power: 0
+    max_power: 1
+    zero_means_zero: True
+    
+  # Fan power (MOSFET) via D3 with will switch GND for the fan through an N-Ch MOSFET
+  - platform: gpio
+    pin: D3
+    id: fan_power
+
+fan:
+  - platform: speed
+    output: fan_speed
+    name: Fan
+    id: the_fan
+    on_turn_on:
+      - output.turn_on: fan_power
+    on_turn_off:
+      - output.turn_off: fan_power
+
+# two number controlling the speed adjustment range
+number:
+  - platform: template
+    name: "Fan Start Temp"
+    id: start_temp
+    internal: false
+    max_value: 40.0
+    min_value: 20.0
+    initial_value: 30
+    step: 1
+    optimistic: true
+    mode: slider
+
+  - platform: template
+    name: "Fan 100% Temp"
+    id: max_temp
+    internal: false
+    initial_value: 50
+    max_value: 60.0
+    min_value: 30.0
+    step: 1
+    optimistic: true
+    mode: slider
+
+switch:
+  # template switch, whether control is fully manual or temperature controlled
+  - platform: template
+    name: Temperature Controlled
+    optimistic: true
+    id: automatic
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      # if auto is turned on restore temp based value
+      - lambda:  !lambda |
+          auto pct = constrain(map(id(fan_temperature).state, id(start_temp).state, id(max_temp).state, 1, 100),0,100);
+          if (pct>1) {
+            auto call = id(the_fan).turn_on(); call.set_speed(pct); call.perform();
+          } else {
+            auto call = id(the_fan).turn_off(); call.set_speed(1); call.perform();
+          }
+          
+button:
+  # Expose an ESP32 restart button to HA                                                                                                                                                                                                 
+  - platform: restart
+    name: "Restart"
