@@ -47,7 +47,7 @@ Currently the code uses MQTT to communicate, which is my preferred way to do it 
 # Other
 The "code" (its just a piece of yaml) also has the usual stuff enabled, like some system sensors about uptime and wifi.
 
-Also a regular webserver running on port 80 is included so that you can control the fans directy with the browser.
+Also a regular webserver running on port 80 is included so that you can control the fans directly within the browser.
 
 OTA updates are supported and it also features a restart button, if needed.
 
